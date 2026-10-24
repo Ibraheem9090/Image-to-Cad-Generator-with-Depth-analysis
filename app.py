@@ -228,18 +228,39 @@ if uploaded_files:
                 st.image(Image.open(img_file), caption=f"View {idx+1}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # ==========================================
+# ==========================================
     # STAGE 4: INTERACTIVE 3D CAD VIEWPORT
     # ==========================================
     st.markdown('<div class="stage-card">', unsafe_allow_html=True)
     st.markdown('<div class="stage-title">🧊 Stage 4: Interactive 3D CAD Preview & Export</div>', unsafe_allow_html=True)
     
+    # Extract real contours from sketch to pass into Three.js
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contour_points = []
+    if contours:
+        # Find largest contour (the main object)
+        largest_cnt = max(contours, key=cv2.contourArea)
+        # Approximate contour to reduce point density
+        epsilon = 0.005 * cv2.arcLength(largest_cnt, True)
+        approx = cv2.approxPolyDP(largest_cnt, epsilon, True)
+        for pt in approx:
+            # Center and scale coordinates
+            x = float(pt[0][0] - w_px / 2) * scale_factor * 0.2
+            y = float(pt[0][1] - h_px / 2) * scale_factor * 0.2
+            contour_points.append([x, y])
+
+    # Fallback box if contours are sparse
+    if len(contour_points) < 3:
+        contour_points = [[-50, -25], [50, -25], [50, 25], [-50, 25]]
+
+    # Convert contour points to JavaScript array format
+    js_points = "".join([f"shape.lineTo({pt[0]}, {-pt[1]});\n" for pt in contour_points])
+
     h_px, w_px = sketch_output.shape[:2]
     calc_w = w_px * scale_factor
     calc_h = h_px * scale_factor
-    st.write(f"**Computed Mesh Bounding Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm")
+    st.write(f"**Computed Mesh Bounding Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm (Contour-Matched)")
     
-    # Bulletproof Three.js WebGL Interactive Viewport
     threejs_code = f"""
     <!DOCTYPE html>
     <html>
@@ -262,29 +283,28 @@ if uploaded_files:
             scene.background = new THREE.Color(0x111318);
 
             const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 5000);
-            camera.position.set(150, 150, 250);
+            camera.position.set(0, -200, 250);
+            camera.up.set(0, 0, 1);
 
             const renderer = new THREE.WebGLRenderer({{ antialias: true }});
             renderer.setSize(width, height);
             container.appendChild(renderer.domElement);
 
             const gridHelper = new THREE.GridHelper(400, 40, 0x00ffcc, 0x444444);
+            gridHelper.rotation.x = Math.PI / 2;
             scene.add(gridHelper);
 
-            const axesHelper = new THREE.AxesHelper(150);
-            scene.add(axesHelper);
-
             const shape = new THREE.Shape();
-            const boxW = Math.max(20, {w_px} * 0.1 * {scale_factor});
-            const boxH = Math.max(20, {h_px} * 0.1 * {scale_factor});
-            
-            shape.moveTo(-boxW/2, -boxH/2);
-            shape.lineTo(boxW/2, -boxH/2);
-            shape.lineTo(boxW/2, boxH/2);
-            shape.lineTo(-boxW/2, boxH/2);
-            shape.closePath();
+            const pts = {contour_points};
+            if (pts.length > 0) {{
+                shape.moveTo(pts[0][0], pts[0][1]);
+                for (let i = 1; i < pts.length; i++) {{
+                    shape.lineTo(pts[i][0], pts[i][1]);
+                }}
+                shape.closePath();
+            }}
 
-            const extrudeSettings = {{ depth: {extrusion_depth}, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 2, bevelThickness: 2 }};
+            const extrudeSettings = {{ depth: {extrusion_depth}, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 1, bevelThickness: 1 }};
             const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
             
             const material = new THREE.MeshStandardMaterial({{ 
@@ -295,19 +315,14 @@ if uploaded_files:
             }});
             
             const mesh = new THREE.Mesh(geometry, material);
-            mesh.rotation.x = -Math.PI / 2;
             scene.add(mesh);
 
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
             scene.add(ambientLight);
 
             const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.5);
-            dirLight1.position.set(200, 400, 200);
+            dirLight1.position.set(200, 200, 400);
             scene.add(dirLight1);
-
-            const dirLight2 = new THREE.DirectionalLight(0x00ffff, 1.0);
-            dirLight2.position.set(-200, -200, -200);
-            scene.add(dirLight2);
 
             const controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
