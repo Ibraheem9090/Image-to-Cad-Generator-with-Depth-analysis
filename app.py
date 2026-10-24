@@ -204,7 +204,11 @@ if uploaded_files:
     calc_h = 50 * scale_factor
     st.write(f"**Certified Parametric Bounding Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm")
     
-    # Bulletproof self-contained WebGL renderer with auto-rotation and zero external dependencies
+    import json
+
+    # Ensure clean JSON serialization for JavaScript injection
+    scaled_pts_json = json.dumps([[p[0] * scale_factor, p[1] * scale_factor] for p in parametric_points])
+
     threejs_code = f"""
     <!DOCTYPE html>
     <html>
@@ -242,7 +246,7 @@ if uploaded_files:
                 scene.add(gridHelper);
 
                 const shape = new THREE.Shape();
-                const pts = {scaled_pts};
+                const pts = {scaled_pts_json};
                 if (pts && pts.length > 0) {{
                     shape.moveTo(pts[0][0], pts[0][1]);
                     for (let i = 1; i < pts.length; i++) {{
@@ -274,11 +278,11 @@ if uploaded_files:
 
                 function animate() {{
                     requestAnimationFrame(animate);
-                    mesh.rotation.z += 0.006; // Smooth guaranteed auto-rotation
+                    mesh.rotation.z += 0.006;
                     renderer.render(scene, camera);
                 }}
                 animate();
-            }} catch (e) {{
+            } catch (e) {{
                 document.getElementById('error-box').innerText = "WebGL Initialization Error: " + e.message;
             }}
         </script>
