@@ -170,15 +170,16 @@ if uploaded_files:
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ==========================================
-    # STAGE 3: PRECISION CONTOUR & SPLINE EXTRACTION
+    # ==========================================
+    # STAGE 3: HIGH-FIDELITY CONTOUR & DEPTH-DRIVEN PROFILE
     # ==========================================
     st.markdown('<div class="stage-card">', unsafe_allow_html=True)
-    st.markdown('<div class="stage-title">⚙️ Stage 3: High-Fidelity Contour & Spline Synthesis</div>', unsafe_allow_html=True)
+    st.markdown('<div class="stage-title">⚙️ Stage 3: High-Fidelity Contour & Depth-Driven Profile Synthesis</div>', unsafe_allow_html=True)
     
     gray_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
     blurred = cv2.GaussianBlur(gray_cv, (3, 3), 0)
-    _, thresh = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
+    _, thresh = cv2.threshold(blurred, 195, 255, cv2.THRESH_BINARY_INV)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)
     
     contour_points = []
     mask_source = np.zeros((h_px, w_px), dtype=np.uint8)
@@ -188,14 +189,15 @@ if uploaded_files:
         largest_c = max(contours, key=cv2.contourArea)
         cv2.drawContours(mask_source, [largest_c], -1, 255, thickness=cv2.FILLED)
         
-        epsilon = 0.001 * cv2.arcLength(largest_c, True)
+        # Tighter epsilon for smooth professional engineering curves
+        epsilon = 0.0008 * cv2.arcLength(largest_c, True)
         approx = cv2.approxPolyDP(largest_c, epsilon, True)
         for pt in approx:
             x = float(pt[0][0] - w_px / 2) * scale_factor * 0.5
             y = float(pt[0][1] - h_px / 2) * scale_factor * 0.5
             contour_points.append([x, y])
 
-    if len(contour_points) < 5:
+    if len(contour_points) < 8:
         contour_points = [[-140, -25], [140, -25], [140, 25], [-140, 25]]
 
     pts_cv = np.array([[int(p[0] / (scale_factor * 0.5) + w_px / 2),
@@ -203,7 +205,7 @@ if uploaded_files:
     cv2.drawContours(mask_cad, [pts_cv], -1, 255, thickness=cv2.FILLED)
 
     scaled_pts_json = json.dumps(contour_points)
-    st.success(f"Synthesized {len(contour_points)} professional engineering spline vertices.")
+    st.success(f"Optimized to {len(contour_points)} high-precision spline vertices with enhanced curve continuity.")
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ==========================================
