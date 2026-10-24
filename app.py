@@ -15,22 +15,22 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CUSTOM CSS FOR ELITE ENGINEERING UI ---
+# --- CUSTOM CSS FOR CLEAN ENGINEERING UI (NO HARSH LINES) ---
 st.markdown("""
     <style>
     .stage-card {
         background-color: #161920;
         border: 1px solid #2d323b;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        padding: 24px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     }
     .stage-title {
         color: #00d2ff;
         font-weight: 700;
-        font-size: 1.25rem;
-        margin-bottom: 10px;
+        font-size: 1.3rem;
+        margin-bottom: 15px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -237,16 +237,14 @@ if uploaded_files:
     st.markdown('<div class="stage-card">', unsafe_allow_html=True)
     st.markdown('<div class="stage-title">🧊 Stage 4: Interactive 3D CAD Preview & Export</div>', unsafe_allow_html=True)
     
-    # Extract real contours from sketch to pass into Three.js
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Extract high-resolution contours preserving smooth curves
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     contour_points = []
     if contours:
         largest_cnt = max(contours, key=cv2.contourArea)
-        epsilon = 0.005 * cv2.arcLength(largest_cnt, True)
-        approx = cv2.approxPolyDP(largest_cnt, epsilon, True)
-        for pt in approx:
-            x = float(pt[0][0] - w_px / 2) * scale_factor * 0.2
-            y = float(pt[0][1] - h_px / 2) * scale_factor * 0.2
+        for pt in largest_cnt[::2]:  # Sample every 2nd point for smooth performance
+            x = float(pt[0][0] - w_px / 2) * scale_factor * 0.15
+            y = float(pt[0][1] - h_px / 2) * scale_factor * 0.15
             contour_points.append([x, y])
 
     if len(contour_points) < 3:
@@ -254,7 +252,7 @@ if uploaded_files:
 
     calc_w = w_px * scale_factor
     calc_h = h_px * scale_factor
-    st.write(f"**Computed Mesh Bounding Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm (Contour-Matched)")
+    st.write(f"**Computed Mesh Bounding Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm (High-Density Curve Matched)")
     
     threejs_code = f"""
     <!DOCTYPE html>
