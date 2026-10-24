@@ -165,11 +165,11 @@ if uploaded_files:
     # ==========================================
     st.markdown('<div class="stage-card">', unsafe_allow_html=True)
     st.markdown('<div class="stage-title">⚙️ Stage 3: Parametric CAD Program Synthesis</div>', unsafe_allow_html=True)
-    st.info("Synthesizing clean parametric geometry curves (combining jaw head, tapered handle, and box ring primitives) to eliminate pixel noise.")
+    st.info("Synthesizing clean parametric geometry curves (combining jaw head, tapered handle, and box ring primitives).")
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ==========================================
-    # STAGE 4: QA VERIFICATION (95%+ TARGET)
+    # STAGE 4: QA VERIFICATION
     # ==========================================
     st.markdown('<div class="stage-card">', unsafe_allow_html=True)
     st.markdown('<div class="stage-title">🔍 Stage 4: Closed-Loop QA Verification Engine</div>', unsafe_allow_html=True)
@@ -188,23 +188,16 @@ if uploaded_files:
     st.markdown('<div class="stage-card">', unsafe_allow_html=True)
     st.markdown('<div class="stage-title">🧊 Stage 5: Interactive 3D CAD Preview & Certified Exports</div>', unsafe_allow_html=True)
     
-    # Generate clean parametric spanner contour points programmatically for flawless 3D rendering
-    # Left Jaw Head + Tapered Shaft + Right Ring Head
     parametric_points = []
-    # Jaw head (left)
     for angle in np.linspace(-np.pi/2, np.pi/2, 20):
         parametric_points.append([-140 + np.cos(angle)*25, np.sin(angle)*22])
-    # Shaft top edge
     parametric_points.append([-115, 12])
     parametric_points.append([115, 8])
-    # Right ring head
     for angle in np.linspace(-np.pi/2, np.pi/2, 20):
         parametric_points.append([140 + np.cos(angle)*22, np.sin(angle)*22])
-    # Shaft bottom edge
     parametric_points.append([115, -8])
     parametric_points.append([-115, -12])
 
-    # Apply scaling factor
     scaled_pts = [[p[0] * scale_factor, p[1] * scale_factor] for p in parametric_points]
 
     calc_w = 280 * scale_factor
@@ -218,7 +211,7 @@ if uploaded_files:
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
         <style>
-            body {{ margin: 0; background-color: #0b0e14; overflow: hidden; }}
+            body, html {{ margin: 0; padding: 0; width: 100%; height: 100%; background-color: #0b0e14; overflow: hidden; }}
             #webgl-container {{ width: 100%; height: 420px; }}
         </style>
     </head>
@@ -226,18 +219,16 @@ if uploaded_files:
         <div id="webgl-container"></div>
         <script>
             const container = document.getElementById('webgl-container');
-            const width = container.clientWidth;
-            const height = 420;
-
+            
             const scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0b0e14);
 
-            const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
+            const camera = new THREE.PerspectiveCamera(45, container.clientWidth / 420, 0.1, 10000);
             camera.position.set(0, -400, 300);
             camera.up.set(0, 0, 1);
 
             const renderer = new THREE.WebGLRenderer({{ antialias: true }});
-            renderer.setSize(width, height);
+            renderer.setSize(container.clientWidth, 420);
             container.appendChild(renderer.domElement);
 
             const gridHelper = new THREE.GridHelper(500, 50, 0x00ffcc, 0x222630);
@@ -256,7 +247,7 @@ if uploaded_files:
 
             const extrudeSettings = {{ depth: {extrusion_depth}, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.8, bevelThickness: 0.8 }};
             const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-            geometry.center(); // Automatically center geometry in viewport
+            geometry.center();
 
             const material = new THREE.MeshStandardMaterial({{ 
                 color: 0x00ffcc, 
@@ -268,8 +259,7 @@ if uploaded_files:
             const mesh = new THREE.Mesh(geometry, material);
             scene.add(mesh);
 
-            // Bright lighting setup
-            const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
             scene.add(ambientLight);
 
             const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
@@ -289,6 +279,12 @@ if uploaded_files:
                 renderer.render(scene, camera);
             }}
             animate();
+
+            window.addEventListener('resize', () => {{
+                camera.aspect = container.clientWidth / 420;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, 420);
+            }});
         </script>
     </body>
     </html>
