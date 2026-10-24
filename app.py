@@ -269,7 +269,7 @@ if uploaded_files:
     calc_h = h_px * scale_factor * 0.4
     st.write(f"**Certified Formed Mesh Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm")
     
-threejs_code = f"""
+    threejs_code = f"""
     <!DOCTYPE html>
     <html>
     <head>
