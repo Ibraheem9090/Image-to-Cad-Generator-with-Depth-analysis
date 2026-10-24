@@ -15,6 +15,26 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- CUSTOM CSS FOR ELITE ENGINEERING UI ---
+st.markdown("""
+    <style>
+    .stage-card {
+        background-color: #161920;
+        border: 1px solid #2d323b;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    .stage-title {
+        color: #00d2ff;
+        font-weight: 700;
+        font-size: 1.25rem;
+        margin-bottom: 10px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- SECURE CLIENT CONFIGURATION ---
 try:
     parse_key = st.secrets["NVIDIA_API_KEY_PARSE"]
@@ -23,24 +43,16 @@ except Exception:
     st.error("⚠️ NVIDIA API keys are missing! Please configure them in your Streamlit Secrets.")
     st.stop()
 
-# --- SIDEBAR BRANDING FOOTER ---
-st.sidebar.markdown("---")
-st.sidebar.markdown(
-    "<div style='text-align: center; color: gray; font-size: 14px;'>Developed by <b>Ibraheem</b></div>", 
-    unsafe_allow_html=True
-)
-
 client_parse = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=parse_key)
 client_llm = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=llm_key)
 
 # --- LOAD MONOCULAR DEPTH ESTIMATION MODEL (CACHED) ---
 @st.cache_resource
 def load_depth_estimator():
-    # Using the correct Hugging Face compatible transformers repo for Depth Anything V2
     return pipeline("depth-estimation", model="depth-anything/Depth-Anything-V2-Small-hf")
 
-st.title("🛠️ Image-to-Sketch-to-CAD Pipeline with Monocular Vision Depth")
-st.markdown("Upload product photos or blueprints to automatically execute edge vectorization, NVIDIA OCR dimension parsing, monocular depth mapping, and 3D CAD generation.")
+st.title("🛠️ Image-to-Sketch-to-CAD Unified Intelligence Dashboard")
+st.markdown("An end-to-end automated vision-to-CAD pipeline. All stages execute seamlessly down the page in real-time.")
 
 # --- SIDEBAR: CONTROLS WITH HOVER TOOLTIPS ---
 st.sidebar.header("1. Image Upload")
@@ -105,7 +117,7 @@ def image_to_base64(image):
     image.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-# --- AUTOMATED PIPELINE EXECUTION ---
+# --- MAIN UNIFIED DASHBOARD EXECUTION ---
 if uploaded_files:
     file = uploaded_files[0]
     image = Image.open(file).convert("RGB")
@@ -117,7 +129,7 @@ if uploaded_files:
     edges = cv2.Canny(blurred_img, canny_low, canny_high)
     sketch_output = cv2.bitwise_not(edges) if invert_sketch else edges
 
-    # Automatic Stage 2: NVIDIA NIM OCR Parser (Runs in background)
+    # Automatic Stage 2: NVIDIA NIM OCR Parser
     if 'nemotron_result' not in st.session_state:
         try:
             base64_image = image_to_base64(image)
@@ -137,7 +149,7 @@ if uploaded_files:
         except Exception as e:
             st.session_state['nemotron_result'] = f"Automated extraction notice: {e}"
 
-    # Automatic Stage 2.5: Monocular Depth Estimation (Runs in background)
+    # Automatic Stage 2.5: Monocular Depth Estimation
     if 'depth_map' not in st.session_state:
         try:
             depth_estimator = load_depth_estimator()
@@ -146,145 +158,180 @@ if uploaded_files:
         except Exception as e:
             st.session_state['depth_map'] = None
 
-    # --- NAVIGATION TABS ---
-    tab1, tab2, tab_depth, tab3, tab4 = st.tabs([
-        "🎨 Stage 1: Sketch & Contour", 
-        "📏 Stage 2: NVIDIA OCR & Dimensions", 
-        "🌊 Stage 2.5: Monocular Depth Map",
-        "🖼️ Stage 3: Multi-View Generation", 
-        "🧊 Stage 4: 3D CAD Viewport"
-    ])
+    # ==========================================
+    # STAGE 1: SKETCH & CONTOUR VECTORIZATION
+    # ==========================================
+    st.markdown('<div class="stage-card">', unsafe_allow_html=True)
+    st.markdown('<div class="stage-title">🎨 Stage 1: Line & Sketch Vectorization</div>', unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.image(image, caption="Original Input Source", use_container_width=True)
+    with c2:
+        st.image(sketch_output, caption="Extracted Clean Vector Sketch", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    with tab1:
-        st.subheader("Stage 1: Line / Sketch Extraction")
-        col1, col2 = st.columns(2)
-        with col1:
+    # ==========================================
+    # STAGE 2: NVIDIA OCR & DIMENSION PARSING
+    # ==========================================
+    st.markdown('<div class="stage-card">', unsafe_allow_html=True)
+    st.markdown('<div class="stage-title">📏 Stage 2: NVIDIA OCR & Dimension Extraction</div>', unsafe_allow_html=True)
+    sc1, sc2 = st.columns(2)
+    with sc1:
+        st.image(image, caption="Active Blueprint Inspection", use_container_width=True)
+    with sc2:
+        st.markdown("**AI Parsing Output (`nvidia/nemotron-parse-2.0`)**")
+        if 'nemotron_result' in st.session_state:
+            st.success("Extracted Successfully in Background")
+            st.markdown(st.session_state['nemotron_result'])
+        if has_dimensions == "Yes":
+            st.info(f"Calibration Active: 1 Pixel = {scale_factor:.4f} mm")
+        else:
+            st.warning(f"Unscaled Mode. Global Comparison Scale: {global_scale}x")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # ==========================================
+    # STAGE 2.5: MONOCULAR DEPTH MAPPING
+    # ==========================================
+    st.markdown('<div class="stage-card">', unsafe_allow_html=True)
+    st.markdown('<div class="stage-title">🌊 Stage 2.5: Monocular Depth Analysis (Depth Anything V2)</div>', unsafe_allow_html=True)
+    if st.session_state.get('depth_map') is not None:
+        dc1, dc2 = st.columns(2)
+        with dc1:
             st.image(image, caption="Original Input Image", use_container_width=True)
-        with col2:
-            st.image(sketch_output, caption="Extracted Clean Sketch", use_container_width=True)
+        with dc2:
+            st.image(st.session_state['depth_map'], caption="Inferred Monocular Relief Depth Map", use_container_width=True)
+    else:
+        st.warning("Depth map generation skipped or unavailable.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    with tab2:
-        st.subheader("Stage 2: Dimension Analysis & Scaling Engine")
-        col_a, col_b = st.columns([1, 1])
-        with col_a:
-            st.image(image, caption="Active Blueprint", use_container_width=True)
-        with col_b:
-            st.markdown("#### AI Dimension Extraction via NVIDIA NIM")
-            st.write("Using model: `nvidia/nemotron-parse-2.0`")
-            if 'nemotron_result' in st.session_state:
-                st.success("Extraction Completed Automatically!")
-                st.markdown(st.session_state['nemotron_result'])
-            if has_dimensions == "Yes":
-                st.info(f"Calibration Active: 1 Pixel = {scale_factor:.4f} mm")
-            else:
-                st.warning(f"Unscaled Mode. Global Comparison Scale Slider is set to: {global_scale}x")
+    # ==========================================
+    # STAGE 3: MULTI-VIEW SYNTHESIS
+    # ==========================================
+    st.markdown('<div class="stage-card">', unsafe_allow_html=True)
+    st.markdown('<div class="stage-title">🖼️ Stage 3: Multi-View Projections & Synthesis</div>', unsafe_allow_html=True)
+    if len(uploaded_files) == 1:
+        st.caption("Single image detected. Automatically generating orthogonal projections:")
+        mc1, mc2, mc3 = st.columns(3)
+        with mc1:
+            st.image(sketch_output, caption="Front Projection (Provided)")
+        with mc2:
+            side_view = cv2.flip(sketch_output, 1)
+            st.image(side_view, caption="Top Projection (Synthesized)")
+        with mc3:
+            iso_view = cv2.rotate(sketch_output, cv2.ROTATE_90_CLOCKWISE)
+            st.image(iso_view, caption="Side Projection (Synthesized)")
+    else:
+        st.success(f"{len(uploaded_files)} Multi-view images loaded.")
+        cols = st.columns(len(uploaded_files))
+        for idx, img_file in enumerate(uploaded_files):
+            with cols[idx]:
+                st.image(Image.open(img_file), caption=f"View {idx+1}")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    with tab_depth:
-        st.subheader("Stage 2.5: Monocular Depth Analysis (Depth Anything V2)")
-        st.markdown("Automatically infers pixel-level relative depth distance from your single input image.")
-        if st.session_state.get('depth_map') is not None:
-            d_col1, d_col2 = st.columns(2)
-            with d_col1:
-                st.image(image, caption="Original Input Image", use_container_width=True)
-            with d_col2:
-                st.image(st.session_state['depth_map'], caption="Inferred Monocular Depth Map (Relief)", use_container_width=True)
-        else:
-            st.warning("Depth map generation was skipped or encountered an error.")
+    # ==========================================
+    # STAGE 4: INTERACTIVE 3D CAD VIEWPORT
+    # ==========================================
+    st.markdown('<div class="stage-card">', unsafe_allow_html=True)
+    st.markdown('<div class="stage-title">🧊 Stage 4: Interactive 3D CAD Preview & Export</div>', unsafe_allow_html=True)
+    
+    h_px, w_px = sketch_output.shape[:2]
+    calc_w = w_px * scale_factor
+    calc_h = h_px * scale_factor
+    st.write(f"**Computed Mesh Bounding Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm")
+    
+    # Bulletproof Three.js WebGL Interactive Viewport
+    threejs_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+        <style>
+            body {{ margin: 0; background-color: #111318; overflow: hidden; }}
+            #webgl-container {{ width: 100%; height: 420px; }}
+        </style>
+    </head>
+    <body>
+        <div id="webgl-container"></div>
+        <script>
+            const container = document.getElementById('webgl-container');
+            const width = container.clientWidth;
+            const height = 420;
 
-    with tab3:
-        st.subheader("Stage 3: Multi-View Synthesis / Fusion")
-        if len(uploaded_files) == 1:
-            st.info("Single image provided. Generating automated orthogonal side and top projection views...")
-            m_col1, m_col2, m_col3 = st.columns(3)
-            with m_col1:
-                st.image(sketch_output, caption="View 1: Front (Provided)")
-            with m_col2:
-                side_view = cv2.flip(sketch_output, 1)
-                st.image(side_view, caption="View 2: Top Projection (Generated)")
-            with m_col3:
-                iso_view = cv2.rotate(sketch_output, cv2.ROTATE_90_CLOCKWISE)
-                st.image(iso_view, caption="View 3: Side Projection (Generated)")
-        else:
-            st.success(f"{len(uploaded_files)} Multi-view images loaded for spatial fusion.")
-            cols = st.columns(len(uploaded_files))
-            for idx, img_file in enumerate(uploaded_files):
-                with cols[idx]:
-                    st.image(Image.open(img_file), caption=f"View {idx+1}")
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111318);
 
-    with tab4:
-        st.subheader("Stage 4: Interactive 3D CAD Preview")
-        
-        # Safety Check before rendering 3D preview
-        h_px, w_px = sketch_output.shape[:2]
-        calc_w = w_px * scale_factor
-        calc_h = h_px * scale_factor
-        
-        st.write(f"**Calculated Bounding Box:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm")
-        
-        # Embedded Three.js WebGL Renderer with safe dynamic dimensions
-        threejs_code = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-            <style> body {{ margin: 0; background-color: #0e1117; }} canvas {{ width: 100%; height: 420px; display: block; }} </style>
-        </head>
-        <body>
-            <script>
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, window.innerWidth / 420, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({{ antialias: true }});
-                renderer.setSize(window.innerWidth, 420);
-                document.body.appendChild(renderer.domElement);
+            const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 5000);
+            camera.position.set(150, 150, 250);
 
-                const gridHelper = new THREE.GridHelper(300, 30, 0x00ffcc, 0x333333);
-                scene.add(gridHelper);
+            const renderer = new THREE.WebGLRenderer({{ antialias: true }});
+            renderer.setSize(width, height);
+            container.appendChild(renderer.domElement);
 
-                const shape = new THREE.Shape();
-                const boxW = Math.max(10, {w_px} * 0.1 * {scale_factor});
-                const boxH = Math.max(10, {h_px} * 0.1 * {scale_factor});
-                
-                shape.moveTo(-boxW/2, -boxH/2);
-                shape.lineTo(boxW/2, -boxH/2);
-                shape.lineTo(boxW/2, boxH/2);
-                shape.lineTo(-boxW/2, boxH/2);
-                shape.closePath();
+            const gridHelper = new THREE.GridHelper(400, 40, 0x00ffcc, 0x444444);
+            scene.add(gridHelper);
 
-                const extrudeSettings = {{ depth: {extrusion_depth}, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 1, bevelThickness: 1 }};
-                const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-                const material = new THREE.MeshPhongMaterial({{ color: 0x00d2ff, wireframe: false, side: THREE.DoubleSide }});
-                const mesh = new THREE.Mesh(geometry, material);
-                mesh.rotation.x = -Math.PI / 2;
-                scene.add(mesh);
+            const axesHelper = new THREE.AxesHelper(150);
+            scene.add(axesHelper);
 
-                const light = new THREE.DirectionalLight(0xffffff, 1.2);
-                light.position.set(60, 120, 60);
-                scene.add(light);
-                scene.add(new THREE.AmbientLight(0x505050));
+            const shape = new THREE.Shape();
+            const boxW = Math.max(20, {w_px} * 0.1 * {scale_factor});
+            const boxH = Math.max(20, {h_px} * 0.1 * {scale_factor});
+            
+            shape.moveTo(-boxW/2, -boxH/2);
+            shape.lineTo(boxW/2, -boxH/2);
+            shape.lineTo(boxW/2, boxH/2);
+            shape.lineTo(-boxW/2, boxH/2);
+            shape.closePath();
 
-                camera.position.set(120, 120, 120);
-                const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            const extrudeSettings = {{ depth: {extrusion_depth}, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 2, bevelThickness: 2 }};
+            const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            
+            const material = new THREE.MeshStandardMaterial({{ 
+                color: 0x00d2ff, 
+                roughness: 0.3,
+                metalness: 0.8,
+                side: THREE.DoubleSide 
+            }});
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.rotation.x = -Math.PI / 2;
+            scene.add(mesh);
 
-                function animate() {{
-                    requestAnimationFrame(animate);
-                    controls.update();
-                    renderer.render(scene, camera);
-                }}
-                animate();
-            </script>
-        </body>
-        </html>
-        """
-        components.html(threejs_code, height=440)
-        
-        col_d1, col_d2, col_d3 = st.columns(3)
-        with col_d1:
-            st.download_button("📥 Export Parametric STEP (.step)", data="ISO-10303-21; ...", file_name="cad_model.step")
-        with col_d2:
-            st.download_button("📥 Export 2D DXF Vector (.dxf)", data="0\nSECTION\n2\nHEADER...", file_name="sketch_contour.dxf")
-        with col_d3:
-            st.download_button("📥 Export 3D Mesh (.stl)", data="solid model binary...", file_name="mesh.stl")
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.5);
+            dirLight1.position.set(200, 400, 200);
+            scene.add(dirLight1);
+
+            const dirLight2 = new THREE.DirectionalLight(0x00ffff, 1.0);
+            dirLight2.position.set(-200, -200, -200);
+            scene.add(dirLight2);
+
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            function animate() {{
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }}
+            animate();
+        </script>
+    </body>
+    </html>
+    """
+    components.html(threejs_code, height=440)
+    
+    col_d1, col_d2, col_d3 = st.columns(3)
+    with col_d1:
+        st.download_button("📥 Export Parametric STEP (.step)", data="ISO-10303-21; ...", file_name="cad_model.step")
+    with col_d2:
+        st.download_button("📥 Export 2D DXF Vector (.dxf)", data="0\nSECTION\n2\nHEADER...", file_name="sketch_contour.dxf")
+    with col_d3:
+        st.download_button("📥 Export 3D Mesh (.stl)", data="solid model binary...", file_name="mesh.stl")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 else:
-    st.info("👈 Please upload an image in the sidebar to initialize the automated pipeline.")
+    st.info("👈 Please upload an image in the sidebar to initialize the automated unified dashboard.")
