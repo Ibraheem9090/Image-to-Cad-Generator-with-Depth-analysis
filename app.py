@@ -218,7 +218,7 @@ if uploaded_files:
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
         <style>
-            body {{ margin: 0; background-color: #111318; overflow: hidden; }}
+            body {{ margin: 0; background-color: #0b0e14; overflow: hidden; }}
             #webgl-container {{ width: 100%; height: 420px; }}
         </style>
     </head>
@@ -230,17 +230,17 @@ if uploaded_files:
             const height = 420;
 
             const scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x111318);
+            scene.background = new THREE.Color(0x0b0e14);
 
-            const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 5000);
-            camera.position.set(0, -250, 300);
+            const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
+            camera.position.set(0, -400, 300);
             camera.up.set(0, 0, 1);
 
             const renderer = new THREE.WebGLRenderer({{ antialias: true }});
             renderer.setSize(width, height);
             container.appendChild(renderer.domElement);
 
-            const gridHelper = new THREE.GridHelper(600, 60, 0x00ffcc, 0x444444);
+            const gridHelper = new THREE.GridHelper(500, 50, 0x00ffcc, 0x222630);
             gridHelper.rotation.x = Math.PI / 2;
             scene.add(gridHelper);
 
@@ -254,25 +254,31 @@ if uploaded_files:
                 shape.closePath();
             }}
 
-            const extrudeSettings = {{ depth: {extrusion_depth}, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 1, bevelThickness: 1 }};
+            const extrudeSettings = {{ depth: {extrusion_depth}, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.8, bevelThickness: 0.8 }};
             const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-            
+            geometry.center(); // Automatically center geometry in viewport
+
             const material = new THREE.MeshStandardMaterial({{ 
-                color: 0x00d2ff, 
+                color: 0x00ffcc, 
                 roughness: 0.2,
-                metalness: 0.9,
+                metalness: 0.8,
                 side: THREE.DoubleSide 
             }});
             
             const mesh = new THREE.Mesh(geometry, material);
             scene.add(mesh);
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+            // Bright lighting setup
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
             scene.add(ambientLight);
 
-            const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.5);
-            dirLight1.position.set(200, -200, 400);
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
+            dirLight1.position.set(300, -300, 500);
             scene.add(dirLight1);
+
+            const dirLight2 = new THREE.DirectionalLight(0x00d2ff, 1.5);
+            dirLight2.position.set(-300, 300, 300);
+            scene.add(dirLight2);
 
             const controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
