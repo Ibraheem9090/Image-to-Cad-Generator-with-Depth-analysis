@@ -269,7 +269,7 @@ if uploaded_files:
     calc_h = h_px * scale_factor * 0.4
     st.write(f"**Certified Formed Mesh Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm")
     
-    # Three.js script that builds a 3D formed/bent geometry if depth topology indicates a bend
+# Three.js script with correctly doubled f-string braces
     threejs_code = f"""
     <!DOCTYPE html>
     <html>
@@ -313,7 +313,6 @@ if uploaded_files:
                 gridHelper.rotation.x = Math.PI / 2;
                 scene.add(gridHelper);
 
-                // Build 2D cross-section shape
                 const shape = new THREE.Shape();
                 const data = {contours_json};
                 
@@ -340,7 +339,6 @@ if uploaded_files:
                     }});
                 }}
 
-                // Define a 3D Formed Path with Bends (Left flat -> Inclined ramp -> Vertical drop)
                 const bendPath = new THREE.CurvePath();
                 bendPath.add(new THREE.LineCurve3(
                     new THREE.Vector3(-120, 0, 0),
@@ -407,13 +405,12 @@ if uploaded_files:
                     camera.updateProjectionMatrix();
                     renderer.setSize(w, height);
                 }});
-            } catch (e) {{
+            }} catch (e) {{
                 document.getElementById('error-overlay').innerText = "WebGL Error: " + e.message;
             }}
         </script>
     </body>
     </html>
-    """
     """
     components.html(threejs_code, height=470, scrolling=False)
     
