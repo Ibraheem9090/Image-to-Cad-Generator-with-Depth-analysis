@@ -269,8 +269,7 @@ if uploaded_files:
     calc_h = h_px * scale_factor * 0.4
     st.write(f"**Certified Formed Mesh Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm")
     
-# Three.js script with correctly doubled f-string braces
-    threejs_code = f"""
+threejs_code = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -284,7 +283,7 @@ if uploaded_files:
     </head>
     <body>
         <div id="canvas-container">
-            <div id="error-overlay">Synthesizing 3D Formed Mesh...</div>
+            <div id="error-overlay">Synthesizing Precision CAD Mesh...</div>
         </div>
         <script>
             try {{
@@ -298,7 +297,7 @@ if uploaded_files:
                 scene.background = new THREE.Color(0x0b0e14);
 
                 const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
-                camera.position.set(250, -350, 250);
+                camera.position.set(0, -350, 250);
                 camera.up.set(0, 0, 1);
 
                 const renderer = new THREE.WebGLRenderer({{ antialias: true }});
@@ -318,9 +317,9 @@ if uploaded_files:
                 
                 if (data.outer && data.outer.length > 0) {{
                     const outerPts = data.outer;
-                    shape.moveTo(outerPts[0][0], outerPts[0][1]);
+                    shape.moveTo(outerPts[0][0], -outerPts[0][1]);
                     for (let i = 1; i < outerPts.length; i++) {{
-                        shape.lineTo(outerPts[i][0], outerPts[i][1]);
+                        shape.lineTo(outerPts[i][0], -outerPts[i][1]);
                     }}
                     shape.closePath();
                 }}
@@ -329,9 +328,9 @@ if uploaded_files:
                     data.holes.forEach(holePts => {{
                         if (holePts.length >= 3) {{
                             const holePath = new THREE.Path();
-                            holePath.moveTo(holePts[0][0], holePts[0][1]);
+                            holePath.moveTo(holePts[0][0], -holePts[0][1]);
                             for (let j = 1; j < holePts.length; j++) {{
-                                holePath.lineTo(holePts[j][0], holePts[j][1]);
+                                holePath.lineTo(holePts[j][0], -holePts[j][1]);
                             }}
                             holePath.closePath();
                             shape.holes.push(holePath);
@@ -339,31 +338,13 @@ if uploaded_files:
                     }});
                 }}
 
-                const bendPath = new THREE.CurvePath();
-                bendPath.add(new THREE.LineCurve3(
-                    new THREE.Vector3(-120, 0, 0),
-                    new THREE.Vector3(-40, 0, 0)
-                ));
-                bendPath.add(new THREE.LineCurve3(
-                    new THREE.Vector3(-40, 0, 0),
-                    new THREE.Vector3(40, 0, 50)
-                ));
-                bendPath.add(new THREE.LineCurve3(
-                    new THREE.Vector3(40, 0, 50),
-                    new THREE.Vector3(120, 0, 50)
-                ));
-                bendPath.add(new THREE.LineCurve3(
-                    new THREE.Vector3(120, 0, 50),
-                    new THREE.Vector3(120, 0, -100)
-                ));
-
                 const extrudeSettings = {{ 
-                    steps: 64, 
+                    depth: {extrusion_depth}, 
                     bevelEnabled: true, 
                     bevelSegments: 3, 
-                    extrudePath: bendPath,
-                    bevelSize: 0.4, 
-                    bevelThickness: 0.4 
+                    steps: 1, 
+                    bevelSize: 0.5, 
+                    bevelThickness: 0.5 
                 }};
                 
                 const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
@@ -371,12 +352,13 @@ if uploaded_files:
 
                 const material = new THREE.MeshStandardMaterial({{ 
                     color: 0x00ffcc, 
-                    roughness: 0.3,
-                    metalness: 0.9,
+                    roughness: 0.2,
+                    metalness: 0.8,
                     side: THREE.DoubleSide 
                 }});
                 
                 const mesh = new THREE.Mesh(geometry, material);
+                mesh.rotation.x = Math.PI / 2;
                 scene.add(mesh);
 
                 const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
