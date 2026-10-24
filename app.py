@@ -198,7 +198,6 @@ if uploaded_files:
     if len(contour_points) < 5:
         contour_points = [[-140, -25], [140, -25], [140, 25], [-140, 25]]
 
-    # Render CAD projection mask for strict IoU comparison
     pts_cv = np.array([[int(p[0] / (scale_factor * 0.5) + w_px / 2),
                         int(p[1] / (scale_factor * 0.5) + h_px / 2)] for p in contour_points], dtype=np.int32)
     cv2.drawContours(mask_cad, [pts_cv], -1, 255, thickness=cv2.FILLED)
@@ -252,6 +251,7 @@ if uploaded_files:
     calc_h = h_px * scale_factor * 0.5
     st.write(f"**Certified Mesh Bounding Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm")
     
+    # Bulletproof Three.js renderer with explicit fallback dimensions
     threejs_code = f"""
     <!DOCTYPE html>
     <html>
@@ -260,17 +260,21 @@ if uploaded_files:
         <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
         <style>
             body {{ margin: 0; padding: 0; background-color: #0b0e14; overflow: hidden; }}
-            #canvas-container {{ width: 100%; height: 450px; }}
-            #error-box {{ color: #ff4b4b; font-family: monospace; padding: 10px; font-size: 12px; }}
+            #canvas-container {{ width: 100%; height: 450px; position: relative; }}
+            #error-overlay {{ position: absolute; top: 10px; left: 10px; color: #ff4b4b; font-family: monospace; font-size: 14px; z-index: 10; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 4px; }}
         </style>
     </head>
     <body>
-        <div id="canvas-container"></div>
-        <div id="error-box"></div>
+        <div id="canvas-container">
+            <div id="error-overlay">Initializing WebGL Viewport...</div>
+        </div>
         <script>
             try {{
                 const container = document.getElementById('canvas-container');
-                const width = container.clientWidth || 800;
+                const errorBox = document.getElementById('error-overlay');
+                
+                // Force reliable explicit dimensions if container width is 0 during mount
+                const width = container.clientWidth > 50 ? container.clientWidth : 900;
                 const height = 450;
 
                 const scene = new THREE.Scene();
@@ -294,7 +298,7 @@ if uploaded_files:
 
                 const shape = new THREE.Shape();
                 const pts = {scaled_pts_json};
-                    if (pts && pts.length > 0) {{{{
+                if (pts && pts.length > 0) {{
                     shape.moveTo(pts[0][0], -pts[0][1]);
                     for (let i = 1; i < pts.length; i++) {{
                         shape.lineTo(pts[i][0], -pts[i][1]);
@@ -328,6 +332,9 @@ if uploaded_files:
                 dirLight2.position.set(-300, 300, 300);
                 scene.add(dirLight2);
 
+                // Remove loading overlay once successfully rendered
+                errorBox.style.display = 'none';
+
                 function animate() {{
                     requestAnimationFrame(animate);
                     controls.update();
@@ -336,13 +343,13 @@ if uploaded_files:
                 animate();
 
                 window.addEventListener('resize', () => {{
-                    const w = container.clientWidth;
+                    const w = container.clientWidth || 900;
                     camera.aspect = w / height;
                     camera.updateProjectionMatrix();
                     renderer.setSize(w, height);
                 }});
             }} catch (e) {{
-                document.getElementById('error-box').innerText = "WebGL Error: " + e.message;
+                document.getElementById('error-overlay').innerText = "WebGL Error: " + e.message;
             }}
         </script>
     </body>
