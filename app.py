@@ -69,7 +69,7 @@ def load_depth_estimator():
     return pipeline("depth-estimation", model="depth-anything/Depth-Anything-V2-Small-hf")
 
 st.title("🛠️ Parametric Image-to-CAD Intelligence Dashboard")
-st.markdown("Strict Computer Vision Evaluation Engine: Real-time IoU Silhouette Verification & Professional CAD Synthesis.")
+st.markdown("Strict Computer Vision Evaluation Engine: Hierarchical Contour Extraction & Professional CAD Synthesis.")
 
 # --- SIDEBAR CONTROLS ---
 st.sidebar.header("1. Image Upload")
@@ -170,42 +170,58 @@ if uploaded_files:
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ==========================================
-    # ==========================================
-    # STAGE 3: HIGH-FIDELITY CONTOUR & DEPTH-DRIVEN PROFILE
+    # STAGE 3: HIERARCHICAL CONTOUR & HOLE EXTRACTION
     # ==========================================
     st.markdown('<div class="stage-card">', unsafe_allow_html=True)
-    st.markdown('<div class="stage-title">⚙️ Stage 3: High-Fidelity Contour & Depth-Driven Profile Synthesis</div>', unsafe_allow_html=True)
+    st.markdown('<div class="stage-title">⚙️ Stage 3: Hierarchical Contour & Internal Hole Synthesis</div>', unsafe_allow_html=True)
     
     gray_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
     blurred = cv2.GaussianBlur(gray_cv, (3, 3), 0)
-    _, thresh = cv2.threshold(blurred, 195, 255, cv2.THRESH_BINARY_INV)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)
+    _, thresh = cv2.threshold(blurred, 190, 255, cv2.THRESH_BINARY_INV)
     
-    contour_points = []
+    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_TC89_L1)
+    
+    outer_contours = []
+    inner_holes = []
     mask_source = np.zeros((h_px, w_px), dtype=np.uint8)
     mask_cad = np.zeros((h_px, w_px), dtype=np.uint8)
 
-    if contours:
-        largest_c = max(contours, key=cv2.contourArea)
-        cv2.drawContours(mask_source, [largest_c], -1, 255, thickness=cv2.FILLED)
-        
-        # Tighter epsilon for smooth professional engineering curves
-        epsilon = 0.0008 * cv2.arcLength(largest_c, True)
-        approx = cv2.approxPolyDP(largest_c, epsilon, True)
-        for pt in approx:
-            x = float(pt[0][0] - w_px / 2) * scale_factor * 0.5
-            y = float(pt[0][1] - h_px / 2) * scale_factor * 0.5
-            contour_points.append([x, y])
+    if contours is not None and hierarchy is not None:
+        hierarchy = hierarchy[0]
+        for i, cnt in enumerate(contours):
+            if cv2.contourArea(cnt) > 100:
+                epsilon = 0.001 * cv2.arcLength(cnt, True)
+                approx = cv2.approxPolyDP(cnt, epsilon, True)
+                
+                pts = []
+                for pt in approx:
+                    x = float(pt[0][0] - w_px / 2) * scale_factor * 0.5
+                    y = float(pt[0][1] - h_px / 2) * scale_factor * 0.5
+                    pts.append([x, y])
+                
+                if len(pts) >= 3:
+                    if hierarchy[i][3] == -1:
+                        outer_contours.append(pts)
+                        cv2.drawContours(mask_source, [cnt], -1, 255, thickness=cv2.FILLED)
+                    else:
+                        inner_holes.append(pts)
 
-    if len(contour_points) < 8:
-        contour_points = [[-140, -25], [140, -25], [140, 25], [-140, 25]]
+    if not outer_contours:
+        outer_contours = [[[-140, -25], [140, -25], [140, 25], [-140, 25]]]
 
-    pts_cv = np.array([[int(p[0] / (scale_factor * 0.5) + w_px / 2),
-                        int(p[1] / (scale_factor * 0.5) + h_px / 2)] for p in contour_points], dtype=np.int32)
-    cv2.drawContours(mask_cad, [pts_cv], -1, 255, thickness=cv2.FILLED)
+    contours_data = {
+        "outer": outer_contours[0] if outer_contours else [],
+        "holes": inner_holes
+    }
+    contours_json = json.dumps(contours_data)
 
-    scaled_pts_json = json.dumps(contour_points)
-    st.success(f"Optimized to {len(contour_points)} high-precision spline vertices with enhanced curve continuity.")
+    # Render CAD projection mask for IoU calculation
+    if outer_contours:
+        outer_pts_cv = np.array([[int(p[0] / (scale_factor * 0.5) + w_px / 2),
+                                  int(p[1] / (scale_factor * 0.5) + h_px / 2)] for p in contours_data["outer"]], dtype=np.int32)
+        cv2.drawContours(mask_cad, [outer_pts_cv], -1, 255, thickness=cv2.FILLED)
+
+    st.success(f"Extracted outer boundary with {len(contours_data['outer'])} vertices and {len(inner_holes)} internal socket/jaw cutouts.")
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ==========================================
@@ -253,7 +269,6 @@ if uploaded_files:
     calc_h = h_px * scale_factor * 0.5
     st.write(f"**Certified Mesh Bounding Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm")
     
-    # Bulletproof Three.js renderer with explicit fallback dimensions
     threejs_code = f"""
     <!DOCTYPE html>
     <html>
@@ -275,7 +290,6 @@ if uploaded_files:
                 const container = document.getElementById('canvas-container');
                 const errorBox = document.getElementById('error-overlay');
                 
-                // Force reliable explicit dimensions if container width is 0 during mount
                 const width = container.clientWidth > 50 ? container.clientWidth : 900;
                 const height = 450;
 
@@ -299,13 +313,29 @@ if uploaded_files:
                 scene.add(gridHelper);
 
                 const shape = new THREE.Shape();
-                const pts = {scaled_pts_json};
-                if (pts && pts.length > 0) {{
-                    shape.moveTo(pts[0][0], -pts[0][1]);
-                    for (let i = 1; i < pts.length; i++) {{
-                        shape.lineTo(pts[i][0], -pts[i][1]);
+                const data = {contours_json};
+                
+                if (data.outer && data.outer.length > 0) {{
+                    const outerPts = data.outer;
+                    shape.moveTo(outerPts[0][0], -outerPts[0][1]);
+                    for (let i = 1; i < outerPts.length; i++) {{
+                        shape.lineTo(outerPts[i][0], -outerPts[i][1]);
                     }}
                     shape.closePath();
+                }}
+
+                if (data.holes && data.holes.length > 0) {{
+                    data.holes.forEach(holePts => {{
+                        if (holePts.length >= 3) {{
+                            const holePath = new THREE.Path();
+                            holePath.moveTo(holePts[0][0], -holePts[0][1]);
+                            for (let j = 1; j < holePts.length; j++) {{
+                                holePath.lineTo(holePts[j][0], -holePts[j][1]);
+                            }}
+                            holePath.closePath();
+                            shape.holes.push(holePath);
+                        }}
+                    }});
                 }}
 
                 const extrudeSettings = {{ depth: {extrusion_depth}, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.8, bevelThickness: 0.8 }};
@@ -334,7 +364,6 @@ if uploaded_files:
                 dirLight2.position.set(-300, 300, 300);
                 scene.add(dirLight2);
 
-                // Remove loading overlay once successfully rendered
                 errorBox.style.display = 'none';
 
                 function animate() {{
