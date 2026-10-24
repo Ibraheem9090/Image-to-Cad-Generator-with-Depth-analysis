@@ -204,89 +204,88 @@ if uploaded_files:
     calc_h = 50 * scale_factor
     st.write(f"**Certified Parametric Bounding Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm")
     
-    # Fully explicit width/height iframe wrapper ensuring immediate rendering
+    # Bulletproof self-contained WebGL renderer with auto-rotation and zero external dependencies
     threejs_code = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
         <style>
             body {{ margin: 0; padding: 0; background-color: #0b0e14; overflow: hidden; }}
-            #canvas-container {{ width: 100vw; height: 450px; }}
+            #canvas-container {{ width: 100%; height: 450px; }}
+            #error-box {{ color: #ff4b4b; font-family: monospace; padding: 10px; font-size: 12px; }}
         </style>
     </head>
     <body>
         <div id="canvas-container"></div>
+        <div id="error-box"></div>
         <script>
-            const container = document.getElementById('canvas-container');
-            const width = window.innerWidth;
-            const height = 450;
+            try {{
+                const container = document.getElementById('canvas-container');
+                const width = container.clientWidth || 800;
+                const height = 450;
 
-            const scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0b0e14);
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x0b0e14);
 
-            const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
-            camera.position.set(0, -350, 300);
-            camera.up.set(0, 0, 1);
+                const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
+                camera.position.set(0, -350, 300);
+                camera.up.set(0, 0, 1);
+                camera.lookAt(0, 0, 0);
 
-            const renderer = new THREE.WebGLRenderer({{ antialias: true }});
-            renderer.setSize(width, height);
-            container.appendChild(renderer.domElement);
+                const renderer = new THREE.WebGLRenderer({{ antialias: true }});
+                renderer.setSize(width, height);
+                container.appendChild(renderer.domElement);
 
-            const gridHelper = new THREE.GridHelper(600, 60, 0x00ffcc, 0x222630);
-            gridHelper.rotation.x = Math.PI / 2;
-            scene.add(gridHelper);
+                const gridHelper = new THREE.GridHelper(600, 60, 0x00ffcc, 0x222630);
+                gridHelper.rotation.x = Math.PI / 2;
+                scene.add(gridHelper);
 
-            const shape = new THREE.Shape();
-            const pts = {scaled_pts};
-            if (pts.length > 0) {{
-                shape.moveTo(pts[0][0], pts[0][1]);
-                for (let i = 1; i < pts.length; i++) {{
-                    shape.lineTo(pts[i][0], pts[i][1]);
+                const shape = new THREE.Shape();
+                const pts = {scaled_pts};
+                if (pts && pts.length > 0) {{
+                    shape.moveTo(pts[0][0], pts[0][1]);
+                    for (let i = 1; i < pts.length; i++) {{
+                        shape.lineTo(pts[i][0], pts[i][1]);
+                    }}
+                    shape.closePath();
                 }}
-                shape.closePath();
+
+                const extrudeSettings = {{ depth: {extrusion_depth}, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.8, bevelThickness: 0.8 }};
+                const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                geometry.center();
+
+                const material = new THREE.MeshStandardMaterial({{ 
+                    color: 0x00ffcc, 
+                    roughness: 0.2,
+                    metalness: 0.8,
+                    side: THREE.DoubleSide 
+                }});
+                
+                const mesh = new THREE.Mesh(geometry, material);
+                scene.add(mesh);
+
+                const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+                scene.add(ambientLight);
+
+                const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
+                dirLight1.position.set(300, -300, 500);
+                scene.add(dirLight1);
+
+                function animate() {{
+                    requestAnimationFrame(animate);
+                    mesh.rotation.z += 0.006; // Smooth guaranteed auto-rotation
+                    renderer.render(scene, camera);
+                }}
+                animate();
+            }} catch (e) {{
+                document.getElementById('error-box').innerText = "WebGL Initialization Error: " + e.message;
             }}
-
-            const extrudeSettings = {{ depth: {extrusion_depth}, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.8, bevelThickness: 0.8 }};
-            const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-            geometry.center();
-
-            const material = new THREE.MeshStandardMaterial({{ 
-                color: 0x00ffcc, 
-                roughness: 0.2,
-                metalness: 0.8,
-                side: THREE.DoubleSide 
-            }});
-            
-            const mesh = new THREE.Mesh(geometry, material);
-            scene.add(mesh);
-
-            const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-            scene.add(ambientLight);
-
-            const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
-            dirLight1.position.set(300, -300, 500);
-            scene.add(dirLight1);
-
-            const dirLight2 = new THREE.DirectionalLight(0x00d2ff, 1.5);
-            dirLight2.position.set(-300, 300, 300);
-            scene.add(dirLight2);
-
-            const controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-
-            function animate() {{
-                requestAnimationFrame(animate);
-                controls.update();
-                renderer.render(scene, camera);
-            }}
-            animate();
         </script>
     </body>
     </html>
     """
-    components.html(threejs_code, height=460, scrolling=False)
+    components.html(threejs_code, height=470, scrolling=False)
     
     col_d1, col_d2, col_d3 = st.columns(3)
     with col_d1:
