@@ -124,6 +124,9 @@ if uploaded_files:
     img_array = np.array(image)
     gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
     
+    # Define image dimensions globally early on
+    h_px, w_px = gray.shape[:2]
+
     # Automatic Stage 1: Edge Detection
     blurred_img = cv2.GaussianBlur(gray, (blur_kernel, blur_kernel), 0)
     edges = cv2.Canny(blurred_img, canny_low, canny_high)
@@ -228,7 +231,7 @@ if uploaded_files:
                 st.image(Image.open(img_file), caption=f"View {idx+1}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================
+    # ==========================================
     # STAGE 4: INTERACTIVE 3D CAD VIEWPORT
     # ==========================================
     st.markdown('<div class="stage-card">', unsafe_allow_html=True)
@@ -238,25 +241,17 @@ if uploaded_files:
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contour_points = []
     if contours:
-        # Find largest contour (the main object)
         largest_cnt = max(contours, key=cv2.contourArea)
-        # Approximate contour to reduce point density
         epsilon = 0.005 * cv2.arcLength(largest_cnt, True)
         approx = cv2.approxPolyDP(largest_cnt, epsilon, True)
         for pt in approx:
-            # Center and scale coordinates
             x = float(pt[0][0] - w_px / 2) * scale_factor * 0.2
             y = float(pt[0][1] - h_px / 2) * scale_factor * 0.2
             contour_points.append([x, y])
 
-    # Fallback box if contours are sparse
     if len(contour_points) < 3:
         contour_points = [[-50, -25], [50, -25], [50, 25], [-50, 25]]
 
-    # Convert contour points to JavaScript array format
-    js_points = "".join([f"shape.lineTo({pt[0]}, {-pt[1]});\n" for pt in contour_points])
-
-    h_px, w_px = sketch_output.shape[:2]
     calc_w = w_px * scale_factor
     calc_h = h_px * scale_factor
     st.write(f"**Computed Mesh Bounding Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm (Contour-Matched)")
