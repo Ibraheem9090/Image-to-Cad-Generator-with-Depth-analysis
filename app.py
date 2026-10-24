@@ -204,6 +204,7 @@ if uploaded_files:
     calc_h = 50 * scale_factor
     st.write(f"**Certified Parametric Bounding Volume:** {calc_w:.1f}mm × {calc_h:.1f}mm × {extrusion_depth}mm")
     
+    # Fully explicit width/height iframe wrapper ensuring immediate rendering
     threejs_code = f"""
     <!DOCTYPE html>
     <html>
@@ -211,27 +212,29 @@ if uploaded_files:
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
         <style>
-            body, html {{ margin: 0; padding: 0; width: 100%; height: 100%; background-color: #0b0e14; overflow: hidden; }}
-            #webgl-container {{ width: 100%; height: 420px; }}
+            body {{ margin: 0; padding: 0; background-color: #0b0e14; overflow: hidden; }}
+            #canvas-container {{ width: 100vw; height: 450px; }}
         </style>
     </head>
     <body>
-        <div id="webgl-container"></div>
+        <div id="canvas-container"></div>
         <script>
-            const container = document.getElementById('webgl-container');
-            
+            const container = document.getElementById('canvas-container');
+            const width = window.innerWidth;
+            const height = 450;
+
             const scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0b0e14);
 
-            const camera = new THREE.PerspectiveCamera(45, container.clientWidth / 420, 0.1, 10000);
-            camera.position.set(0, -400, 300);
+            const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
+            camera.position.set(0, -350, 300);
             camera.up.set(0, 0, 1);
 
             const renderer = new THREE.WebGLRenderer({{ antialias: true }});
-            renderer.setSize(container.clientWidth, 420);
+            renderer.setSize(width, height);
             container.appendChild(renderer.domElement);
 
-            const gridHelper = new THREE.GridHelper(500, 50, 0x00ffcc, 0x222630);
+            const gridHelper = new THREE.GridHelper(600, 60, 0x00ffcc, 0x222630);
             gridHelper.rotation.x = Math.PI / 2;
             scene.add(gridHelper);
 
@@ -279,17 +282,11 @@ if uploaded_files:
                 renderer.render(scene, camera);
             }}
             animate();
-
-            window.addEventListener('resize', () => {{
-                camera.aspect = container.clientWidth / 420;
-                camera.updateProjectionMatrix();
-                renderer.setSize(container.clientWidth, 420);
-            }});
         </script>
     </body>
     </html>
     """
-    components.html(threejs_code, height=440)
+    components.html(threejs_code, height=460, scrolling=False)
     
     col_d1, col_d2, col_d3 = st.columns(3)
     with col_d1:
