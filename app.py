@@ -298,7 +298,7 @@ if uploaded_files:
                 scene.background = new THREE.Color(0x0b0e14);
 
                 const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000);
-                camera.position.set(200, -300, 250);
+                camera.position.set(250, -350, 250);
                 camera.up.set(0, 0, 1);
 
                 const renderer = new THREE.WebGLRenderer({{ antialias: true }});
@@ -313,15 +313,15 @@ if uploaded_files:
                 gridHelper.rotation.x = Math.PI / 2;
                 scene.add(gridHelper);
 
-                // Build base profile shape
+                // Build 2D cross-section shape
                 const shape = new THREE.Shape();
                 const data = {contours_json};
                 
                 if (data.outer && data.outer.length > 0) {{
                     const outerPts = data.outer;
-                    shape.moveTo(outerPts[0][0], -outerPts[0][1]);
+                    shape.moveTo(outerPts[0][0], outerPts[0][1]);
                     for (let i = 1; i < outerPts.length; i++) {{
-                        shape.lineTo(outerPts[i][0], -outerPts[i][1]);
+                        shape.lineTo(outerPts[i][0], outerPts[i][1]);
                     }}
                     shape.closePath();
                 }}
@@ -330,9 +330,9 @@ if uploaded_files:
                     data.holes.forEach(holePts => {{
                         if (holePts.length >= 3) {{
                             const holePath = new THREE.Path();
-                            holePath.moveTo(holePts[0][0], -holePts[0][1]);
+                            holePath.moveTo(holePts[0][0], holePts[0][1]);
                             for (let j = 1; j < holePts.length; j++) {{
-                                holePath.lineTo(holePts[j][0], -holePts[j][1]);
+                                holePath.lineTo(holePts[j][0], holePts[j][1]);
                             }}
                             holePath.closePath();
                             shape.holes.push(holePath);
@@ -340,14 +340,32 @@ if uploaded_files:
                     }});
                 }}
 
-                // Create Multi-Segment Bent Profile for Formed Brackets
+                // Define a 3D Formed Path with Bends (Left flat -> Inclined ramp -> Vertical drop)
+                const bendPath = new THREE.CurvePath();
+                bendPath.add(new THREE.LineCurve3(
+                    new THREE.Vector3(-120, 0, 0),
+                    new THREE.Vector3(-40, 0, 0)
+                ));
+                bendPath.add(new THREE.LineCurve3(
+                    new THREE.Vector3(-40, 0, 0),
+                    new THREE.Vector3(40, 0, 50)
+                ));
+                bendPath.add(new THREE.LineCurve3(
+                    new THREE.Vector3(40, 0, 50),
+                    new THREE.Vector3(120, 0, 50)
+                ));
+                bendPath.add(new THREE.LineCurve3(
+                    new THREE.Vector3(120, 0, 50),
+                    new THREE.Vector3(120, 0, -100)
+                ));
+
                 const extrudeSettings = {{ 
-                    depth: {extrusion_depth}, 
+                    steps: 64, 
                     bevelEnabled: true, 
-                    bevelSegments: 4, 
-                    steps: 12, 
-                    bevelSize: 0.5, 
-                    bevelThickness: 0.5 
+                    bevelSegments: 3, 
+                    extrudePath: bendPath,
+                    bevelSize: 0.4, 
+                    bevelThickness: 0.4 
                 }};
                 
                 const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
@@ -361,7 +379,6 @@ if uploaded_files:
                 }});
                 
                 const mesh = new THREE.Mesh(geometry, material);
-                mesh.rotation.x = Math.PI / 2;
                 scene.add(mesh);
 
                 const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
@@ -370,6 +387,10 @@ if uploaded_files:
                 const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
                 dirLight1.position.set(300, -300, 500);
                 scene.add(dirLight1);
+
+                const dirLight2 = new THREE.DirectionalLight(0x00d2ff, 1.5);
+                dirLight2.position.set(-300, 300, 300);
+                scene.add(dirLight2);
 
                 errorBox.style.display = 'none';
 
@@ -386,12 +407,13 @@ if uploaded_files:
                     camera.updateProjectionMatrix();
                     renderer.setSize(w, height);
                 }});
-            }} catch (e) {{
+            } catch (e) {{
                 document.getElementById('error-overlay').innerText = "WebGL Error: " + e.message;
             }}
         </script>
     </body>
     </html>
+    """
     """
     components.html(threejs_code, height=470, scrolling=False)
     
