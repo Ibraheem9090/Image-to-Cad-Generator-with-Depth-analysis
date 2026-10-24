@@ -282,7 +282,7 @@ if uploaded_files:
                     renderer.render(scene, camera);
                 }}
                 animate();
-            } catch (e) {{
+            }} catch (e) {{
                 document.getElementById('error-box').innerText = "WebGL Initialization Error: " + e.message;
             }}
         </script>
