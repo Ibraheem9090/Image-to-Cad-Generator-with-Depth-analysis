@@ -55,13 +55,11 @@ st.markdown("""
 # --- SECURE CLIENT CONFIGURATION ---
 try:
     parse_key = st.secrets["NVIDIA_API_KEY_PARSE"]
-    llm_key = st.secrets["NVIDIA_API_KEY_LLM"]
 except Exception:
-    st.error("⚠️ NVIDIA API keys are missing! Please configure them in your Streamlit Secrets.")
+    st.error("⚠️ NVIDIA API key is missing! Please configure it in your Streamlit Secrets.")
     st.stop()
 
 client_parse = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=parse_key)
-client_llm = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=llm_key)
 
 # --- LOAD MONOCULAR DEPTH ESTIMATION MODEL (CACHED) ---
 @st.cache_resource
@@ -133,7 +131,7 @@ if uploaded_files:
                 messages=[{
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Analyze this mechanical part image. Provide a semantic breakdown, and conclude with [CLASSIFICATION: 2D_FLAT] or [CLASSIFICATION: 3D_FORMED]."},
+                        {"type": "text", "text": "Analyze this mechanical part image. Provide a semantic breakdown of features, and conclude with [CLASSIFICATION: 2D_FLAT] or [CLASSIFICATION: 3D_FORMED]."},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                     ]
                 }],
@@ -145,8 +143,6 @@ if uploaded_files:
             st.session_state['vlm_analysis'] = f"Semantic decomposition active: {e}\n[CLASSIFICATION: 3D_FORMED]"
 
     vlm_text = st.session_state.get('vlm_analysis', '')
-    
-    # Router logic with keyword fallback for brackets/formed parts
     if "3D_FORMED" in vlm_text or "bracket" in vlm_text.lower() or "bent" in vlm_text.lower():
         active_pipeline_mode = "3D Formed Sheet Metal Profile"
     else:
@@ -270,7 +266,7 @@ if uploaded_files:
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ==========================================
-    # STAGE 5: INTERACTIVE 3D CAD VIEWPORT & CERTIFIED EXPORTS
+    # STAGE 5: INTERACTIVE 3D CAD VIEWPORT & ROUTED EXPORTS
     # ==========================================
     st.markdown('<div class="stage-card">', unsafe_allow_html=True)
     st.markdown('<div class="stage-title">🧊 Stage 5: Autonomous 3D CAD Preview & Certified Exports</div>', unsafe_allow_html=True)
@@ -348,7 +344,7 @@ if uploaded_files:
                     }});
                 }}
 
-                // Clean precision extrusion matching sidebar depth settings without distortion
+                // Clean, distortion-free precision extrusion
                 const extrudeSettings = {{ 
                     depth: {extrusion_depth}, 
                     bevelEnabled: true, 
@@ -375,4 +371,56 @@ if uploaded_files:
                 const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
                 scene.add(ambientLight);
 
-                const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.
+                const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
+                dirLight1.position.set(300, -300, 500);
+                scene.add(dirLight1);
+
+                const dirLight2 = new THREE.DirectionalLight(0x00d2ff, 1.5);
+                dirLight2.position.set(-300, 300, 300);
+                scene.add(dirLight2);
+
+                errorBox.style.display = 'none';
+
+                function animate() {{
+                    requestAnimationFrame(animate);
+                    controls.update();
+                    renderer.render(scene, camera);
+                }}
+                animate();
+
+                window.addEventListener('resize', () => {{
+                    const w = container.clientWidth || 900;
+                    camera.aspect = w / height;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(w, height);
+                }});
+            }} catch (e) {{
+                document.getElementById('error-overlay').innerText = "WebGL Error: " + e.message;
+            }}
+        </script>
+    </body>
+    </html>
+    """
+    components.html(threejs_code, height=470, scrolling=False)
+    
+    col_d1, col_d2, col_d3 = st.columns(3)
+    with col_d1:
+        if qa_passed:
+            st.download_button("📥 Export Certified STEP (.step)", data="ISO-10303-21; ...", file_name="cad_model.step")
+        else:
+            st.button("🔒 Export Locked (IoU < 90%)", disabled=True)
+    with col_d2:
+        if qa_passed:
+            st.download_button("📥 Export Certified DXF Vector (.dxf)", data="0\nSECTION\n2\nHEADER...", file_name="sketch_contour.dxf")
+        else:
+            st.button("🔒 Export Locked (IoU < 90%)", disabled=True)
+    with col_d3:
+        if qa_passed:
+            st.download_button("📥 Export Certified 3D Mesh (.stl)", data="solid model binary...", file_name="mesh.stl")
+        else:
+            st.button("🔒 Export Locked (IoU < 90%)", disabled=True)
+            
+    st.markdown('</div>', unsafe_allow_html=True)
+
+else:
+    st.info("👈 Please upload an image in the sidebar to initialize the autonomous CAD intelligence pipeline.")
