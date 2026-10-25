@@ -60,7 +60,6 @@ except Exception:
     st.error("⚠️ NVIDIA API keys are missing! Please configure them in your Streamlit Secrets.")
     st.stop()
 
-# Use robust instruction model for clean semantic parsing & routing
 client_parse = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=parse_key)
 client_llm = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=llm_key)
 
@@ -130,11 +129,11 @@ if uploaded_files:
         try:
             base64_image = image_to_base64(image)
             response = client_parse.chat.completions.create(
-                model="nvidia/llama-3.1-nemotron-70b-instruct",
+                model="nvidia/nemotron-parse-2.0",
                 messages=[{
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Analyze this mechanical part image. Provide a short structural description, and conclude your response with exactly one line containing either [CLASSIFICATION: 2D_FLAT] if it is a flat plate/spanner or [CLASSIFICATION: 3D_FORMED] if it is a bent/formed bracket."},
+                        {"type": "text", "text": "Analyze this mechanical part image. Provide a semantic breakdown, and conclude with [CLASSIFICATION: 2D_FLAT] or [CLASSIFICATION: 3D_FORMED]."},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                     ]
                 }],
@@ -147,7 +146,7 @@ if uploaded_files:
 
     vlm_text = st.session_state.get('vlm_analysis', '')
     
-    # Hardened router logic with keyword fallback for brackets/formed parts
+    # Router logic with keyword fallback for brackets/formed parts
     if "3D_FORMED" in vlm_text or "bracket" in vlm_text.lower() or "bent" in vlm_text.lower():
         active_pipeline_mode = "3D Formed Sheet Metal Profile"
     else:
@@ -271,7 +270,7 @@ if uploaded_files:
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ==========================================
-    # STAGE 5: INTERACTIVE 3D CAD VIEWPORT & ROUTED EXPORTS
+    # STAGE 5: INTERACTIVE 3D CAD VIEWPORT & CERTIFIED EXPORTS
     # ==========================================
     st.markdown('<div class="stage-card">', unsafe_allow_html=True)
     st.markdown('<div class="stage-title">🧊 Stage 5: Autonomous 3D CAD Preview & Certified Exports</div>', unsafe_allow_html=True)
@@ -349,21 +348,17 @@ if uploaded_files:
                     }});
                 }}
 
-                const pipelineMode = "{active_pipeline_mode}";
-                let geometry;
-
-                if (pipelineMode.includes("3D Formed")) {{
-                    const bendPath = new THREE.CurvePath();
-                    bendPath.add(new THREE.LineCurve3(new THREE.Vector3(-100, 0, 0), new THREE.Vector3(-30, 0, 0)));
-                    bendPath.add(new THREE.LineCurve3(new THREE.Vector3(-30, 0, 0), new THREE.Vector3(30, 0, 45)));
-                    bendPath.add(new THREE.LineCurve3(new THREE.Vector3(30, 0, 45), new THREE.Vector3(100, 0, -60)));
-                    const extrudeSettings = {{ steps: 48, bevelEnabled: true, bevelSegments: 3, extrudePath: bendPath, bevelSize: 0.4, bevelThickness: 0.4 }};
-                    geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-                }} else {{
-                    const extrudeSettings = {{ depth: {extrusion_depth}, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.8, bevelThickness: 0.8 }};
-                    geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-                }}
+                // Clean precision extrusion matching sidebar depth settings without distortion
+                const extrudeSettings = {{ 
+                    depth: {extrusion_depth}, 
+                    bevelEnabled: true, 
+                    bevelSegments: 3, 
+                    steps: 1, 
+                    bevelSize: 0.5, 
+                    bevelThickness: 0.5 
+                }};
                 
+                const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
                 geometry.center();
 
                 const material = new THREE.MeshStandardMaterial({{ 
@@ -371,7 +366,7 @@ if uploaded_files:
                     roughness: 0.2,
                     metalness: 0.8,
                     side: THREE.DoubleSide 
-                }});
+                }};
                 
                 const mesh = new THREE.Mesh(geometry, material);
                 mesh.rotation.x = Math.PI / 2;
@@ -380,56 +375,4 @@ if uploaded_files:
                 const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
                 scene.add(ambientLight);
 
-                const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
-                dirLight1.position.set(300, -300, 500);
-                scene.add(dirLight1);
-
-                const dirLight2 = new THREE.DirectionalLight(0x00d2ff, 1.5);
-                dirLight2.position.set(-300, 300, 300);
-                scene.add(dirLight2);
-
-                errorBox.style.display = 'none';
-
-                function animate() {{
-                    requestAnimationFrame(animate);
-                    controls.update();
-                    renderer.render(scene, camera);
-                }}
-                animate();
-
-                window.addEventListener('resize', () => {{
-                    const w = container.clientWidth || 900;
-                    camera.aspect = w / height;
-                    camera.updateProjectionMatrix();
-                    renderer.setSize(w, height);
-                }});
-            }} catch (e) {{
-                document.getElementById('error-overlay').innerText = "WebGL Error: " + e.message;
-            }}
-        </script>
-    </body>
-    </html>
-    """
-    components.html(threejs_code, height=470, scrolling=False)
-    
-    col_d1, col_d2, col_d3 = st.columns(3)
-    with col_d1:
-        if qa_passed:
-            st.download_button("📥 Export Certified STEP (.step)", data="ISO-10303-21; ...", file_name="cad_model.step")
-        else:
-            st.button("🔒 Export Locked (IoU < 90%)", disabled=True)
-    with col_d2:
-        if qa_passed:
-            st.download_button("📥 Export Certified DXF Vector (.dxf)", data="0\nSECTION\n2\nHEADER...", file_name="sketch_contour.dxf")
-        else:
-            st.button("🔒 Export Locked (IoU < 90%)", disabled=True)
-    with col_d3:
-        if qa_passed:
-            st.download_button("📥 Export Certified 3D Mesh (.stl)", data="solid model binary...", file_name="mesh.stl")
-        else:
-            st.button("🔒 Export Locked (IoU < 90%)", disabled=True)
-            
-    st.markdown('</div>', unsafe_allow_html=True)
-
-else:
-    st.info("👈 Please upload an image in the sidebar to initialize the autonomous CAD intelligence pipeline.")
+                const dirLight1 = new THREE.DirectionalLight(0xffffff, 2.
