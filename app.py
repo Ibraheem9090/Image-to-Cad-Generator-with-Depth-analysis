@@ -400,7 +400,7 @@ if uploaded_files:
                     camera.updateProjectionMatrix();
                     renderer.setSize(w, height);
                 }});
-            } catch (e) {{
+            }} catch (e) {{
                 document.getElementById('error-overlay').innerText = "WebGL Error: " + e.message;
             }}
         </script>
