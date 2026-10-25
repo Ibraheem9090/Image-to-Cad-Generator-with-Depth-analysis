@@ -67,7 +67,7 @@ def load_depth_estimator():
     return pipeline("depth-estimation", model="depth-anything/Depth-Anything-V2-Small-hf")
 
 st.title("🛠️ Parametric Image-to-CAD Intelligence Dashboard")
-st.markdown("Autonomous Agentic Pipeline: VLM Routing, Hierarchical Contour Extraction, & Strict IoU Verification.")
+st.markdown("Autonomous Agentic Pipeline: VLM Routing, Hierarchical Contour Extraction, & Strict IoU Verification. Developed b Ibraheem.")
 
 # --- SIDEBAR CONTROLS ---
 st.sidebar.header("1. Image Upload")
