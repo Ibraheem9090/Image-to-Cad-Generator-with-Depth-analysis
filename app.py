@@ -143,7 +143,9 @@ if uploaded_files:
             st.session_state['vlm_analysis'] = f"Semantic decomposition active: {e}\n[CLASSIFICATION: 3D_FORMED]"
 
     vlm_text = st.session_state.get('vlm_analysis', '')
-    if "3D_FORMED" in vlm_text or "bracket" in vlm_text.lower() or "bent" in vlm_text.lower():
+    
+    # Foolproof routing logic with keyword override for brackets and bent parts
+    if "3D_FORMED" in vlm_text or any(k in vlm_text.lower() for k in ["bracket", "bent", "formed", "angle", "curve"]):
         active_pipeline_mode = "3D Formed Sheet Metal Profile"
     else:
         active_pipeline_mode = "2D Hierarchical Contour Extrusion"
