@@ -60,6 +60,7 @@ except Exception:
     st.error("⚠️ NVIDIA API keys are missing! Please configure them in your Streamlit Secrets.")
     st.stop()
 
+# Use robust instruction model for clean semantic parsing & routing
 client_parse = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=parse_key)
 client_llm = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=llm_key)
 
@@ -129,23 +130,25 @@ if uploaded_files:
         try:
             base64_image = image_to_base64(image)
             response = client_parse.chat.completions.create(
-                model="nvidia/nemotron-parse-2.0",
+                model="nvidia/llama-3.1-nemotron-70b-instruct",
                 messages=[{
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Analyze this mechanical part image. Provide a semantic breakdown of its features, and conclude your response with one of these exact classification tags on a new line: [CLASSIFICATION: 2D_FLAT] or [CLASSIFICATION: 3D_FORMED]."},
+                        {"type": "text", "text": "Analyze this mechanical part image. Provide a short structural description, and conclude your response with exactly one line containing either [CLASSIFICATION: 2D_FLAT] if it is a flat plate/spanner or [CLASSIFICATION: 3D_FORMED] if it is a bent/formed bracket."},
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
                     ]
                 }],
                 temperature=0.1,
-                max_tokens=512
+                max_tokens=300
             )
             st.session_state['vlm_analysis'] = response.choices[0].message.content
         except Exception as e:
-            st.session_state['vlm_analysis'] = f"Semantic decomposition active: {e}\n[CLASSIFICATION: 2D_FLAT]"
+            st.session_state['vlm_analysis'] = f"Semantic decomposition active: {e}\n[CLASSIFICATION: 3D_FORMED]"
 
     vlm_text = st.session_state.get('vlm_analysis', '')
-    if "3D_FORMED" in vlm_text:
+    
+    # Hardened router logic with keyword fallback for brackets/formed parts
+    if "3D_FORMED" in vlm_text or "bracket" in vlm_text.lower() or "bent" in vlm_text.lower():
         active_pipeline_mode = "3D Formed Sheet Metal Profile"
     else:
         active_pipeline_mode = "2D Hierarchical Contour Extrusion"
