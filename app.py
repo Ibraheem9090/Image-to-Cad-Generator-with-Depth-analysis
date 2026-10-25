@@ -279,24 +279,20 @@ if uploaded_files:
     <!DOCTYPE html>
     <html>
     <head>
+        <meta charset="utf-8">
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
         <style>
             body {{ margin: 0; padding: 0; background-color: #0b0e14; overflow: hidden; }}
             #canvas-container {{ width: 100%; height: 450px; position: relative; }}
-            #error-overlay {{ position: absolute; top: 10px; left: 10px; color: #ff4b4b; font-family: monospace; font-size: 14px; z-index: 10; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 4px; }}
         </style>
     </head>
     <body>
-        <div id="canvas-container">
-            <div id="error-overlay">Initializing Autonomous WebGL Viewport...</div>
-        </div>
+        <div id="canvas-container"></div>
         <script>
             try {{
                 const container = document.getElementById('canvas-container');
-                const errorBox = document.getElementById('error-overlay');
-                
-                const width = container.clientWidth > 50 ? container.clientWidth : 900;
+                const width = container.clientWidth || 800;
                 const height = 450;
 
                 const scene = new THREE.Scene();
@@ -344,7 +340,6 @@ if uploaded_files:
                     }});
                 }}
 
-                // Clean, distortion-free precision extrusion
                 const extrudeSettings = {{ 
                     depth: {extrusion_depth}, 
                     bevelEnabled: true, 
@@ -358,11 +353,11 @@ if uploaded_files:
                 geometry.center();
 
                 const material = new THREE.MeshStandardMaterial({{ 
-                    color: {0x00ffcc if qa_passed else 0xff4b4b}, 
+                    color: 0x00ffcc, 
                     roughness: 0.2,
                     metalness: 0.8,
                     side: THREE.DoubleSide 
-                }};
+                }});
                 
                 const mesh = new THREE.Mesh(geometry, material);
                 mesh.rotation.x = Math.PI / 2;
@@ -379,8 +374,6 @@ if uploaded_files:
                 dirLight2.position.set(-300, 300, 300);
                 scene.add(dirLight2);
 
-                errorBox.style.display = 'none';
-
                 function animate() {{
                     requestAnimationFrame(animate);
                     controls.update();
@@ -389,13 +382,13 @@ if uploaded_files:
                 animate();
 
                 window.addEventListener('resize', () => {{
-                    const w = container.clientWidth || 900;
+                    const w = container.clientWidth || 800;
                     camera.aspect = w / height;
                     camera.updateProjectionMatrix();
                     renderer.setSize(w, height);
                 }});
-            }} catch (e) {{
-                document.getElementById('error-overlay').innerText = "WebGL Error: " + e.message;
+            }} catch (err) {{
+                console.error("WebGL Init Error:", err);
             }}
         </script>
     </body>
